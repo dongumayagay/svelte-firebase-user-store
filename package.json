@@ -24,7 +24,7 @@
     },
     "devDependencies": {
         "@sveltejs/adapter-auto": "^2.1.0",
-        "@sveltejs/kit": "^1.21.0",
+        "@sveltejs/kit": "^1.30.4",
         "@sveltejs/package": "^2.1.0",
         "publint": "^0.1.15",
         "svelte": "^4.0.1",
