@@ -1,62 +1,71 @@
-Svelte Firebase User Store
-====================================
+# Svelte Firebase User Store
 
-This is a package library that provides a Svelte store for Firebase Authentication. It allows you to listen for changes in the Authentication state and update your application accordingly.
+A small readable [Svelte store](https://svelte.dev/docs/svelte/stores) that follows the current [Firebase Authentication](https://firebase.google.com/docs/auth) user.
 
-Installation
-------------
+> **Maintenance status:** this repository's latest declared package version is **0.0.3**. The repository now includes a guard against starting an auth listener during server-side rendering, but **the published npm package has not been republished or verified here**. Its current package metadata still declares a Svelte 3 peer dependency. Support for Svelte 4/5 and the latest SvelteKit remains a separate upgrade/testing task.
 
-To use this package library in your Svelte project, you can install it via npm:
+## Installation
 
 ```bash
 npm install svelte-firebase-user-store
 ```
 
-Usage
------
+Ensure Firebase is initialized in your app before calling `getAuth()`.
 
-To use the Svelte Firebase User store, you will first need to initialize an instance of the Firebase Authentication service. You can then pass this instance to the `createUserStore` function to create a Svelte store that listens to changes in the Authentication state.
+## Usage in a Svelte component
 
-```bash
-import { createUserStore } from 'svelte-firebase-user-store'
-import { getAuth } from 'firebase/auth';
+```svelte
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { readable } from 'svelte/store';
+  import { getAuth, type User } from 'firebase/auth';
+  import { createUserStore } from 'svelte-firebase-user-store';
 
-const auth = getAuth();
-const authStore = createUserStore(auth);
-```
+  let authStore = readable<User | null | undefined>(undefined);
 
-The `authStore` object returned by `createUserStore` is a Svelte store that represents the Authentication state. It can have one of three possible values:
-
-* `undefined` - This is the initial value of the store before Firebase Authentication initializes. It can be used to show a splash screen or loading spinner while the Authentication state is being fetched.
-* `null` - This value is set in the store if the user is not logged in.
-* `User` - This value is set in the store if the user is logged in, and represents the user object returned by Firebase Authentication.
-
-You can use this store in your Svelte components by subscribing to its changes:
-
-```html
-<script>
-import { get } from 'svelte/store';
-import { createUserStore } from 'svelte-firebase-user-store';
-import { getAuth } from 'firebase/auth'; 
-
-const auth = getAuth();
-const authStore = createUserStore(auth);
-// Get the current value of the store
-const user = $authStore;
-// Subscribe to changes in the store
-$authStore.subscribe((user) => {
-        console.log('Authentication state changed', user);
-    }
-);
+  onMount(() => {
+    authStore = createUserStore(getAuth());
+  });
 </script>
 
 {#if $authStore === undefined}
-    <p>Loading...</p> 
-{:else if $authStore === null}  
-    <p>Please log in</p>
+  <p>Checking authentication...</p>
+{:else if $authStore === null}
+  <p>Please sign in.</p>
 {:else}
-    <p>Welcome, {get($authStore).displayName}!</p>
+  <p>Welcome, {$authStore.displayName ?? $authStore.email ?? 'user'}!</p>
 {/if}
 ```
 
-In this example, we're using a conditional block to display different content depending on the value of the store. If the store's value is `undefined`, we show a loading spinner. If the store's value is `null`, we show a message asking the user to log in. And if the store's value is a `User` object, we display a welcome message with the user's display name.
+Svelte's `$authStore` auto-subscription syntax works **inside a Svelte component**. In a regular TypeScript module, call `authStore.subscribe(callback)` and retain the unsubscribe function.
+
+## Store values
+
+| Value | Meaning |
+| --- | --- |
+| `undefined` | Initial/loading state, including on the server |
+| `null` | Firebase has confirmed that the user is signed out |
+| `User` | Firebase has returned an authenticated user |
+
+The repository implementation registers a Firebase auth listener when the first subscriber starts **in the browser**, and removes it when the last subscriber unsubscribes. During SSR, it leaves the value `undefined` and does not register an auth listener.
+
+**Important:** this guard does **not** make it safe to construct a Firebase client-side `Auth` instance during SSR. Initialize Firebase Auth in browser-only code, for example in Svelte's `onMount`.
+
+## Development and package validation
+
+```bash
+npm install
+npm run check
+npm run package
+npm run build
+```
+
+The repository is a **library**, not a deployed web service. Cloudflare hosting and build checks are not configured for it. [Dependabot](.github/dependabot.yml) checks npm dependencies weekly; no GitHub Actions workflows were introduced.
+
+## Known work
+
+- Upgrade and test peer dependencies for supported modern Svelte versions.
+- Migrate the package tooling from the older SvelteKit release.
+- Add full browser/SSR automated tests against installed dependencies.
+- Adopt Bun and a committed modern lockfile after compatibility checks.
+- Publish a new npm release **only after** checks pass and the package version is intentionally updated.
